@@ -1,6 +1,11 @@
 # cmk_check_unifi-controller
 
 Local Check for check_mk to get information about unifi infrastructure from controller API
+* Shows device's state (up, down, upgrading, provisioning, etc.)
+* Shows how much clients are connected
+* Shows device's load
+* Shows firmware as well as if newer firmware is avaiable
+* Shows controller's version
 
 ## Requirements 
 
@@ -22,9 +27,9 @@ Local Check for check_mk to get information about unifi infrastructure from cont
 
 Running the script should give you something like this:
 ```
-0 UniFi_B-EJ num_clients=10|load1=0.12|load5=0.29|load15=0.23 CONNECTED, last connection: 2020-06-09 17:48:46, Clients: 10, Firmware: 4.0.45.10545 (4.3.13.11253 avaible)
-0 UniFi_B-AM num_clients=10|load1=0.12|load5=0.29|load15=0.23 CONNECTED, last connection: 2020-06-09 17:49:12, Clients: 10, Firmware: 4.3.13.11253
-1 UniFi_B-EC num_clients=6|load1=0.12|load5=0.29|load15=0.23 UPGRADING, last connection: 2020-06-09 17:49:04, Clients: 6, Firmware: 4.0.45.10545 (4.3.13.11253 avaible)
+0 UniFi_AP01 num_clients=10|load1=0.12|load5=0.29|load15=0.23 CONNECTED, last connection: 2020-06-09 17:48:46, Clients: 10, Firmware: 4.0.45.10545 (4.3.13.11253 avaible)
+0 UniFi_AP01 num_clients=12|load1=0.12|load5=0.27|load15=0.23 CONNECTED, last connection: 2020-06-09 17:49:12, Clients: 10, Firmware: 4.3.13.11253
+1 UniFi_AP03 num_clients=6|load1=0.12|load5=0.29|load15=0.23 UPGRADING, last connection: 2020-06-09 17:49:04, Clients: 6, Firmware: 4.0.45.10545 (4.3.13.11253 avaible)
 ```
 
 ## Check_mk/OMD
