@@ -32,15 +32,10 @@ DEVICES_FILE=/tmp/unifi-check-devices$$ #store the complete list of all devices 
 COOKIE_FILE=/tmp/unifi-check-cookie$$ #cookie for the logged in session
 CURL_CMD="curl --tlsv1.2 --silent --cookie ${COOKIE_FILE} --cookie-jar ${COOKIE_FILE} --insecure " #the curl command used to pull the data from the WebUI
 
-# create the temporary devices file
-rm -f $DEVICES_FILE
-touch $DEVICES_FILE
-chmod 600 $DEVICES_FILE
-
-# create the temporary cookie file
-rm -f $COOKIE_FILE
-touch $COOKIE_FILE
-chmod 600 $COOKIE_FILE
+# create the temporary devices and cookies file
+rm -f $DEVICES_FILE $COOKIE_FILE
+touch $DEVICES_FILE $COOKIE_FILE
+chmod 600 $DEVICES_FILE $COOKIE_FILE
 
 ${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $BASEURL/api/login > /dev/null #log into the controller
 ${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device > $DEVICES_FILE #get all devices on that site
@@ -69,22 +64,22 @@ for S in $SERIALS; do
 	# determinate the device's state
 	if [ $STATE -eq 1 ]; then
 		STATUS=0
-		DESC="CONNECTED"
+		DESCRIPTION="CONNECTED"
 	elif [ $STATE -eq 5 ]; then
 		STATUS=$STATUS_PROVISIONING
-		DESC="PROVISIONING"
+		DESCRIPTION="PROVISIONING"
 	elif [ $STATE -eq 4 ]; then
 		STATUS=$STATUS_UPGRADING
-		DESC="UPGRADING"
+		DESCRIPTION="UPGRADING"
 	elif [ $STATE -eq 6 ]; then
 		STATUS=1
-		DESC="heartbeat missed!"
+		DESCRIPTION="heartbeat missed!"
 	elif [ $STATE -eq 0 ]; then
 		STATUS=2
-		DESC="DISCONNECTED!"
+		DESCRIPTION="DISCONNECTED!"
 	else
 		STATUS=3
-		DESC="Unkown state $STATE!"
+		DESCRIPTION="Unkown state $STATE!"
 	fi
 
 	# make a upgrade check
@@ -95,11 +90,10 @@ for S in $SERIALS; do
 		UPDATESTRING=""
 	fi
 
-	echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load1=$LOAD1|load5=$LOAD5|load15=$LOAD15 $DESC, last connection: $(date -d @$LASTSEEN '+%F %T'), Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING" #check_mk output
+	echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load1=$LOAD1|load5=$LOAD5|load15=$LOAD15 $DESCRIPTION, Site: $SITE, last connection: $(date -d @$LASTSEEN '+%F %T'), Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING" #check_mk output
 
 done
 echo "0 UniFi_Controller - Version $(dpkg -l unifi | grep ii | awk {'print $3'})" #output the controllers version
 
 # clean temporary files from earlier
-rm -f $DEVICES_FILE
-rm -f $COOKIE_FILE
+rm -f $DEVICES_FILE $COOKIE_FILE
