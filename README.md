@@ -37,5 +37,5 @@ Running the script should give you something like this:
 Now you can refresh the services of your unifi controller host in the webUI of Check_Mk and you get the new services in your inventory.
 
 
-![Screenshot of check_mk](https://github.com/binarybear-de/cmk_check_unifi-controller/blob/master/example.png)
+![Screenshot of check_mk](https://github.com/binarybear-de/cmk_check_unifi-controller/blob/master/example1.png)
 
