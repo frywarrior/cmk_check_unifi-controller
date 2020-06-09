@@ -1,6 +1,6 @@
-# What's that?
-
 Local Check for check_mk to get information about unifi infrastructure from controller API
+
+## Features
 * Shows device's state (up, down, upgrading, provisioning, etc.)
 * Shows how much clients are connected
 * Shows device's load
@@ -28,7 +28,7 @@ Ideally create a read-only user in UniFi for this task. Following permissions sh
 * Show pending devices (to show new devices in monitoring)
 
 
-### Test
+### Sample Output
 
 Running the script should give you something like this:
 ```
@@ -37,7 +37,7 @@ Running the script should give you something like this:
 1 UniFi_AP03 num_clients=6|load1=0.12|load5=0.29|load15=0.23 UPGRADING, last connection: 2020-06-09 17:49:04, Clients: 6, Firmware: 4.0.45.10545 (4.3.13.11253 avaible)
 ```
 
-## Check_mk/OMD
+## Check_MK
 
 Now you can refresh the services of your unifi controller host in the webUI of Check_Mk and you get the new services in your inventory.
 
