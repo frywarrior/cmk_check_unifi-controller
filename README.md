@@ -1,4 +1,4 @@
-# cmk_check_unifi-controller
+# What's that?
 
 Local Check for check_mk to get information about unifi infrastructure from controller API
 * Shows device's state (up, down, upgrading, provisioning, etc.)
@@ -6,6 +6,12 @@ Local Check for check_mk to get information about unifi infrastructure from cont
 * Shows device's load
 * Shows firmware as well as whetcher newer firmware is avaiable and displays that
 * Shows controller's version if installed locally
+* restricted multi-site support (currently simple have more scripts or build in a for-loop)
+
+## What's different?
+This script was forked from https://github.com/qgmgit/qgm-check_unifi. Main goal was to fetch more from the UniFi API and simplify the installation procedure. The API file was merged into the script as well as the configuration file.
+
+The Check_MK's service name is now mapped with UniFi_<Device's Name> which may be a problem when using one name twice (e.g. on two sites)
 
 ## Requirements 
 
