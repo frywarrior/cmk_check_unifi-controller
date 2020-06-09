@@ -2,7 +2,7 @@
 
 Local Check for check_mk to get information about unifi infrastructure from controller API
 * Shows device's state (up, down, upgrading, provisioning, etc.)
-* Shows how much clients are connected
+* Shows how much clients are connected (set a max of clients
 * Shows device's load
 * Shows firmware as well as if newer firmware is avaiable
 * Shows controller's version
