@@ -4,7 +4,7 @@ Local Check for check_mk to get information about unifi infrastructure from cont
 
 ## Requirements 
 
-* UniFi Controller Software (does not need run on the same server as the agent)
+* UniFi Controller Software
 * Check_MK Agent (Tested on 1.5.0p24 / 1.6.0p12)
 * Package jq installed
 
@@ -12,6 +12,11 @@ Local Check for check_mk to get information about unifi infrastructure from cont
 
 * move the ```check_unifi-controller.sh``` into the local dir ```/usr/lib/check_mk_agent/local``` and set credentials and target controller
 * put the unifi_api in ```/usr/lib/check_mk_agent``` or somewhere else, just remember to change the path in the script!
+* Ideally create a read-only user in UniFi for this task. Following permissions should be given:
+  * Allow read only access to all sites (if used with multisite)
+  * Allow system stats access
+  * Show pending devices (to show new devices in monitoring)
+
 
 ### Test
 
