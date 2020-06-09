@@ -1,5 +1,3 @@
-Local Check for check_mk to get information about unifi infrastructure from controller API
-
 ## Features
 * Shows device's state (up, down, upgrading, provisioning, etc.)
 * Shows how much clients are connected
