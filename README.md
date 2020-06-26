@@ -41,3 +41,11 @@ Now you can refresh the services of your unifi controller host in the webUI of C
 
 ![Screenshot of check_mk](https://github.com/binarybear-de/cmk_check_unifi-controller/blob/master/example1.png)
 
+## Known bugs / future ToDo
+
+* Metrics are not parsed by Check_MK if there's a space in the device's hostname -> need to replace them with something else...
+* Device's name is "null" if not named at all
+* Not able to autodetect multiple sites
+* Adapt this mechanism to a active check from the monitoring server itself to centralize this function
+
+
