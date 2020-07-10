@@ -47,7 +47,8 @@ Now you can refresh the services of your unifi controller host in the webUI of C
 
 ## Known bugs / future ToDo
 
-* Device's name is "null" if not named at all
+* Device's name must be unique even over multiple sites - you can change the service name to the MAC address to get around...
+* Device's name is "null" if not named at all - wont be fixed, name your devices!
 * Adapt this mechanism to a active check from the monitoring server itself to centralize this function
 * limits for load (maybe use plugin-context)
 * triggers for rogue-aps and other issues like DHCP-Timeout, experience
