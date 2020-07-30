@@ -1,6 +1,6 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
-# version 2020-07-10
+# version 2020-07-30
 
 ###############################################################
 
@@ -10,7 +10,7 @@ PASSWORD=somepass
 BASEURL=https://demo.ui.com
 
 # Only set site if you DONT want them to be autodetected!
-SITES=office
+#SITES=office
 
 # additional curl options
 # - insecure-flag is needed if a self-signed certificate is used and is not imported in linux - usually okay if controller is running locally
@@ -27,12 +27,12 @@ STATUS_HEARTBEAT_MISSED=1 #state when controller missed some heartbeat-'pings'
 ###############################################################
 
 getValue() {
-	SERIAL=$1
-	QUERY=$2
-	Q1=" .data | .[] | select(.serial | contains($SERIAL))"
-	Q2=" $QUERY "
-	local VALUE=$(cat $DEVICES_FILE | jq "$Q1" | jq $Q2)
-	echo $VALUE
+ SERIAL=$1
+ QUERY=$2
+ Q1=" .data | .[] | select(.serial | contains($SERIAL))"
+ Q2=" $QUERY "
+ local VALUE=$(cat $DEVICES_FILE | jq "$Q1" | jq $Q2)
+ echo $VALUE
 }
 
 # define temporary files
@@ -58,68 +58,73 @@ ${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $B
 ${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo > $STATUS_FILE
 CONTROLLERBUILD=$(cat $STATUS_FILE | jq '.data | .[] | .build' | sed -e 's/"//g')
 STATUS=0
-if [ $(cat $STATUS_FILE | jq '.data | .[] | .update_available') = "true" ]; then
-	CONTROLLERBUILD="$CONTROLLERBUILD (Update avaiable!)"
-	STATUS=$STATUS_UPGRADABLE
+UPDATE_STATUS=$(cat $STATUS_FILE | jq '.data | .[] | .update_available')
+if [ $UPDATE_STATUS = "true" ]; then
+        CONTROLLERBUILD="$CONTROLLERBUILD (Update avaiable!)"
+        STATUS=$STATUS_UPGRADABLE
+elif [ $UPDATE_STATUS = "false" ]; then
+        STATUS=0
+else
+        STATUS=3
 fi
 
 echo "$STATUS UniFi-Controller - Build $CONTROLLERBUILD" #output the controllers version
 
 # check if site auto-detection should be used when no sites were specified
-if ! [ $SITES ]; then
-	${CURL_CMD} $BASEURL/api/self/sites > $SITES_FILE #write found sites to file
-	SITES_NAME=$(cat $SITES_FILE | jq '.data | .[] | .name') #gets all site names
-	SITES=$(echo $SITES_NAME | sed -e 's/"//g')
+if ! [ "$SITES" ]; then
+ ${CURL_CMD} $BASEURL/api/self/sites > $SITES_FILE #write found sites to file
+ SITES_NAME=$(cat $SITES_FILE | jq '.data | .[] | .name') #gets all site names
+ SITES=$(echo $SITES_NAME | sed -e 's/"//g')
 fi
 
 # loop over all sites
 for SITE in $SITES; do
 
-	${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device > $DEVICES_FILE #get all devices on that site
-	SERIALS=$(cat $DEVICES_FILE | jq '.data | .[] | .serial') # iterate over the acquired serials
+ ${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device > $DEVICES_FILE #get all devices on that site
+ SERIALS=$(cat $DEVICES_FILE | jq '.data | .[] | .serial') # iterate over the acquired serials
 
-	# loop over all serial numbers (devices) on current site
-	for S in $SERIALS; do
-		DEVICE_NAME=$(getValue $S .name | sed -e 's/"//g; s/\ /_/g')
-		CLIENTS=$(getValue $S .num_sta)
-		LOAD=$(getValue $S .sys_stats.loadavg_5 | sed -e 's/"//g; s/\ /_/g')
-		UPGRADEABLEFW=$(getValue $S .upgrade_to_firmware | sed -e 's/"//g')
-		VERSION=$(getValue $S .version | sed -e 's/"//g')
-		STATE=$(getValue $S .state)
+ # loop over all serial numbers (devices) on current site
+ for S in $SERIALS; do
+  DEVICE_NAME=$(getValue $S .name | sed -e 's/"//g; s/\ /_/g')
+  CLIENTS=$(getValue $S .num_sta)
+  LOAD=$(getValue $S .sys_stats.loadavg_5 | sed -e 's/"//g; s/\ /_/g')
+  UPGRADEABLEFW=$(getValue $S .upgrade_to_firmware | sed -e 's/"//g')
+  VERSION=$(getValue $S .version | sed -e 's/"//g')
+  STATE=$(getValue $S .state)
 
-		STATUS=3 # set the service-state in check_mk, default is unknown if something weird happens
+  STATUS=3 # set the service-state in check_mk, default is unknown if something weird happens
 
-		# determining the device's state
-		# https://community.ui.com/questions/Fetching-current-UAP-status/88a197f9-3530-4580-8f0b-eca43b41ba6b
-		case $STATE in
-			1)      STATUS=0
-				DESCRIPTION="CONNECTED";;
+  # determining the device's state
+  # https://community.ui.com/questions/Fetching-current-UAP-status/88a197f9-3530-4580-8f0b-eca43b41ba6b
+  case $STATE in
+   1)      STATUS=0
+    DESCRIPTION="CONNECTED";;
 
-			0)      STATUS=2
-				DESCRIPTION="DISCONNECTED!";;
+   0)      STATUS=2
+    DESCRIPTION="DISCONNECTED!";;
 
-			4)      STATUS=$STATUS_UPGRADING
-				DESCRIPTION="UPGRADING";;
+   4)      STATUS=$STATUS_UPGRADING
+    DESCRIPTION="UPGRADING";;
 
-			5)      STATUS=$STATUS_PROVISIONING
-				DESCRIPTION="PROVISIONING";;
+   5)      STATUS=$STATUS_PROVISIONING
+    DESCRIPTION="PROVISIONING";;
 
-			6)      STATUS=$STATUS_HEARTBEAT_MISSED
-				DESCRIPTION="heartbeat missed!";;
+   6)      STATUS=$STATUS_HEARTBEAT_MISSED
+    DESCRIPTION="heartbeat missed!";;
 
-			*)      DESCRIPTION="Unkown state ($STATE)!";;
-			esac
+   *)      DESCRIPTION="Unkown state ($STATE)!";;
+   esac
 
-		# make a upgrade check
-		if [ $UPGRADEABLEFW != $VERSION ]; then
-			UPDATESTRING=" ($UPGRADEABLEFW avaible)"
-			if [ $STATUS -eq 0 ]; then STATUS=$STATUS_UPGRADABLE; fi
-		else
-			UPDATESTRING=""
-		fi
+  # make a upgrade check
+  if [ "$UPGRADEABLEFW" != "$VERSION" ] && [ "$UPGRADEABLEFW" != "null" ]; then
+UPDATESTRING=" ($UPGRADEABLEFW avaible)"
+   if [ "$STATUS" -eq 0 ]; then STATUS=$STATUS_UPGRADABLE; fi
+  else
+   UPDATESTRING=""
+  fi
 
-		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load=$LOAD $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING" #check_mk output
-	done
+  echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load=$LOAD $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING" #check_mk output
+ done
 done
 
 ${CURL_CMD} $BASEURL/logout #finally close the session
