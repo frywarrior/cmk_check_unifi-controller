@@ -1,13 +1,13 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
-# version 2020-07-10
+# version 2020-08-17
 
 ###############################################################
 
 # Settings for the controller-binding
-USERNAME=bf-monitoring
-PASSWORD=FuBxZS_jbtBvZsOF
-BASEURL=https://127.0.0.1:8443
+USERNAME=user
+PASSWORD=pass
+BASEURL=https://demo.ui.com
 
 # Only set site if you DONT want them to be autodetected!
 #SITES=office
@@ -15,14 +15,6 @@ BASEURL=https://127.0.0.1:8443
 # additional curl options
 # - insecure-flag is needed if a self-signed certificate is used and is not imported in linux - usually okay if controller is running locally
 # - enforce a specific version of TLS
-CURLOPTS=" --insecure --tlsv1.2"
-
-# mapping of device's states to check_mk statuses
-# STATUS: 0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKN
-STATUS_PROVISIONING=1 #state when provisioning
-STATUS_UPGRADING=1 # state when firmware upgrade is in progress
-STATUS_UPGRADABLE=0 #state when firmware updates are available
-STATUS_HEARTBEAT_MISSED=1 #state when controller missed some heartbeat-'pings'
 
 ###############################################################
 
@@ -71,18 +63,19 @@ for SITE in $SITES; do
 			echo "da sind geräte ohne NAMEN!!!!"
 			NONAME=1
 		elif [[ $MODEL == US* ]]; then
-			echo "$MODEL ist ein Switch!"
 			countSwitches=$((countSwitches+1))
 		elif [[ $MODEL == U7* ]]; then
-			echo "$MODEL ist ein AP!"
 			countAccessPoints=$((countAccessPoints+1))
 		else
-			echo "Ich weiß nicht was das ist: $MODEL"
+			echo "Unbekanntes Gerät: $MODEL"
 			FAILURE=1
 		fi
 
 		if [ NONAME = 1 ]; then
 			echo "Es wurden Geräte ausgenommen, deren Name 'null' ist. Diese Geräte sind entweder nicht benannt oder noch nicht korrekt adoptiert (hier werden sie 1x pro Site gezählt!)"
+		fi
+		if [ FAILURE = 1 ]; then
+			echo "Einige Geräte konnten nicht korrekt identifiziert werden (siehe oben!)"
 		fi
 #echo $countAccessPoints
 #echo $countSwitches
