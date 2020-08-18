@@ -1,3 +1,4 @@
+#!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
 # version 2020-08-18
 
@@ -15,11 +16,14 @@ FILE_SUFFIX=$$ #random seed (mainly to keep the suffix the same for debugging pu
 FILE_PREFIX=/tmp/unifi-check
 FAILURE=0 #trigger for undetected devices
 NONAME=0 #trigger for unnamed devices
+NOADOPT=0
+COUNT_ACCESSPOINTS=0
+COUNT_SWITCHES=0
+COUNT_SITES=0
+COUNT_UNADOPT=0
+COUNT_UNNAMED=0
 
-USERNAME=user
-PASSWORD=pass
-BASEURL=https://demo.ui.com
-CURLOPTS=" --insecure --tlsv1.2"
+. /usr/lib/check_mk_agent/unifi.conf #source login data from config
 
 DEVICES_FILE=$FILE_PREFIX-devices-$RND_SEED #file for a list of all devices
 SITES_FILE=$FILE_PREFIX-sites-$RND_SEED #file with list of all sites
@@ -48,9 +52,9 @@ COUNT_SITES=$((COUNT_SITES+1))
   for S in $SERIALS; do
         DEVICE_NAME=$(getValue $S .name | sed -e 's/"//g; s/\ /_/g')
         MODEL=$(getValue $S .model | sed -e 's/"//g; s/\ /_/g')
-        if [ $DEVICE_NAME == "null" ]; then
-                NONAME=1
-                COUNT_UNNAMED=$((COUNT_UNNAMED+1))
+        if [ $(getValue $S .adopted | sed -e 's/"//g; s/\ /_/g') = "false" ];then
+                COUNT_UNADOPT=$((COUNT_UNADOPT+1))
+                NOADOPT=1
         elif [[ $MODEL == US* ]]; then
                 COUNT_SWITCHES=$((COUNT_SWITCHES+1))
         elif [[ $MODEL == U7* ]]; then
@@ -74,10 +78,11 @@ echo ""
 echo $(($COUNT_SWITCHES + $COUNT_ACCESSPOINTS)) " Geräte insgesamt"
 echo $COUNT_SITES " Sites"
 echo ""
-if [ $NONAME = 1 ]; then
-        echo "Es wurden $COUNT_UNNAMED Geräte ausgenommen, deren Name 'null' ist. Diese Geräte sind entweder nicht benannt oder noch nicht korrekt adoptiert (hier werden sie 1x pro Site gezählt!) Bitte im Monitoring suchen und fixen!!"
+
+if [ $NOADOPT -eq 1 ]; then
+        echo "Es wurden $COUNT_UNADOPT Geräte ausgenommen, welche noch nicht adoptiert sind (diese werden sonst 1x pro Site gezählt!)"
 fi
-if [ $FAILURE = 1 ]; then
+if [ $FAILURE -eq 1 ]; then
         echo $countUNKN "Geräte konnten nicht korrekt identifiziert werden. Liste der Modelle:" $LISTunknown
 fi
 
