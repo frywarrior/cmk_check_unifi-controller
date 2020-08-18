@@ -61,7 +61,6 @@ COUNT_SITES=$((COUNT_SITES+1))
                 FAILURE=1
         fi
   done
-  done
  # loop over all serial numbers (devices) on current site
 done
 
