@@ -23,6 +23,18 @@
 
 ## Installation / Setup
 
+### One-liner
+```
+apt install jq \
+&& mkdir -p /usr/lib/check_mk_agent/local \
+&& wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/check_unifi-controller.sh -O /usr/lib/check_mk_agent/local/check_unifi-controller.sh \
+&&chmod +x /usr/lib/check_mk_agent/local/check_unifi-controller.sh \
+&&wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/unifi.cfg -O /etc/check_mk/unifi.cfg \
+&& chmod 700 /etc/check_mk/unifi.cfg \
+&&chown root: /etc/check_mk/unifi.cfg
+```
+
+### manual
 Move the ```check_unifi-controller.sh``` into the local dir ```/usr/lib/check_mk_agent/local``` and set credentials controller's ip and other parameters.
 Ideally create a read-only user in UniFi for this task. Following permissions should be given:
 * Allow read only access to all sites (if used with multisite)
