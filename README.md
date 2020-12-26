@@ -11,7 +11,7 @@
 ## What's different?
 * This script was forked from https://github.com/qgmgit/qgm-check_unifi. Main goal was to fetch more from the UniFi API and simplify the installation procedure.
 * Needed API functions from the external file were merged into the script file.
-* Optimized the parsing process to select a single device first instead of 'JQ'ing over the whole JSON output of ALL devices (0m:18s vs 1m:45s for 167 devices on demo.unifi.com)
+* Optimized the parsing process **(0m:18s vs 1m:45s for 167 devices on demo.unifi.com)**
 * The Check_MK's service name is now mapped with UniFi_<Device's Name> which may be a problem when using one name twice (e.g. on two sites)
 * Permission checking of the config parameters to keep the login safe
 
@@ -36,7 +36,7 @@ apt install jq \
 ```
 
 ### manual
-* Package jq installed - ```apt install jq``` on Debian / Ubuntu
+* Install jq package
 * Move the ```check_unifi-controller.sh``` into the local dir ```/usr/lib/check_mk_agent/local``` 
 * Move the ```unifi.cfg``` config file into Check_MK's config dir ```/etc/check_mk/unifi.cfg```
 * Set permissions of ```unifi.cfg``` to 700 with owner root
