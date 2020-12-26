@@ -24,12 +24,12 @@
 ## Installation / Setup
 
 ### One-liner
-The I-am-lazy-just-install method:
+The I-am-lazy-just-install method: Just copy-paste the whole block in the shell
 ```
 apt install jq \
 && CMK_LOCAL=/usr/lib/check_mk_agent/local \
 && CMK_CONFIG=/etc/check_mk/unifi.cfg \
-&& mkdir -p /usr/lib/check_mk_agent/local \
+&& mkdir -p $CMK_LOCAL \
 && wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/check_unifi-controller.sh -O $CMK_LOCAL/check_unifi-controller.sh \
 && chmod +x $CMK_LOCAL/check_unifi-controller.sh \
 && wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/unifi.cfg -O $CMK_CONFIG \
