@@ -1,29 +1,22 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2020-12-26 v2"
+SCRIPTBUILD="BUILD 2020-12-26 v3"
 
 ###############################################################
-
-# Settings for the controller-binding
-USERNAME=someuser
-PASSWORD=somepass
-BASEURL=https://demo.ui.com
-
-# additional curl options
-# - insecure-flag is needed if a self-signed certificate is used and is not imported in linux - usually okay if controller is running locally
-# - enforce a specific version of TLS
-CURLOPTS=" --insecure --tlsv1.2"
-
-# mapping of device's states to check_mk statuses
-# STATUS: 0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKN
-STATUS_PROVISIONING=1
-STATUS_UPGRADING=1
-STATUS_UPGRADABLE=0
-STATUS_HEARTBEAT_MISSED=1
-
+# you should not need to edit anything here - use the config file!
 ###############################################################
-# you should not need to edit anything below here!
-###############################################################
+
+CONFIG_FILE=/etc/check_mk/unifi.cfg
+CONFIG_ACCESS=$(stat -c %a $CONFIG_FILE)
+CONFIG_OWNER=$(stat -c %U $CONFIG_FILE)
+
+if [ ! $CONFIG_ACCESS = 700 ] || [ ! $CONFIG_OWNER = root ] ; then
+	echo "2 UniFi-Controller - Config permission mismatch, must be 700 with owner root (current: $CONFIG_ACCESS, owner $CONFIG_OWNER)!"
+	exit 1
+fi
+
+# source the settings from file
+. $CONFIG_FILE
 
 # init counters
 NUM_NOTNAMED=0
@@ -43,10 +36,6 @@ getDeviceInfo() {
 getValueFromDevice() {
 	echo $DEVICE | jq " $1 " | sed -e 's/"//g'
 }
-#getSiteName() {
-	# get the Site description instead of the cryptic name / id
-#	echo $DEVICES | jq " .data | .[] | select(.name | contains("default"))" | jq " .desc "
-#}
 
 ###############################################################
 
