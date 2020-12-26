@@ -10,6 +10,7 @@
 
 ## What's different?
 This script was forked from https://github.com/qgmgit/qgm-check_unifi. Main goal was to fetch more from the UniFi API and simplify the installation procedure. The API file was merged into the script as well as the configuration file.
+Optimized the parsing process to select a single device first instead of 'JQ'ing over the whole JSON output of ALL devices (0m:18s vs 1m:45s for 167 devices on demo.unifi.com)
 
 The Check_MK's service name is now mapped with UniFi_<Device's Name> which may be a problem when using one name twice (e.g. on two sites)
 
