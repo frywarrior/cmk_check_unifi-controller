@@ -41,6 +41,8 @@ apt install jq \
 * Move the ```check_unifi-controller.sh``` into the local dir ```/usr/lib/check_mk_agent/local``` 
 * Move the ```unifi.cfg``` config file into Check_MK's config dir ```/etc/check_mk/unifi.cfg```
 * Set permissions of ```unifi.cfg``` to 700 with owner root
+
+### setup
 * Ideally create a read-only user in UniFi for this task. Following permissions should be given:
   * Allow read only access to all sites (if used with multisite)
   * Allow system stats access
