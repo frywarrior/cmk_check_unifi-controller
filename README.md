@@ -24,14 +24,17 @@
 ## Installation / Setup
 
 ### One-liner
+The I-am-lazy-just-install method:
 ```
 apt install jq \
+&& CMK_LOCAL=/usr/lib/check_mk_agent/local \
+&& CMK_CONFIG=/etc/check_mk/unifi.cfg \
 && mkdir -p /usr/lib/check_mk_agent/local \
-&& wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/check_unifi-controller.sh -O /usr/lib/check_mk_agent/local/check_unifi-controller.sh \
-&&chmod +x /usr/lib/check_mk_agent/local/check_unifi-controller.sh \
-&&wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/unifi.cfg -O /etc/check_mk/unifi.cfg \
-&& chmod 700 /etc/check_mk/unifi.cfg \
-&&chown root: /etc/check_mk/unifi.cfg
+&& wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/check_unifi-controller.sh -O $CMK_LOCAL/check_unifi-controller.sh \
+&& chmod +x $CMK_LOCAL/check_unifi-controller.sh \
+&& wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/unifi.cfg -O $CMK_CONFIG \
+&& chmod 700 $CMK_CONFIG \
+&& chown root: $CMK_CONFIG
 ```
 
 ### manual
