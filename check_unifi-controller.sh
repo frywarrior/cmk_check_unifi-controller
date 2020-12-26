@@ -1,6 +1,6 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
-# version 2020-07-30
+SCRIPTBUILD="version 2020-12-26"
 
 ###############################################################
 
@@ -16,158 +16,128 @@ CURLOPTS=" --insecure --tlsv1.2"
 
 # mapping of device's states to check_mk statuses
 # STATUS: 0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKN
-STATUS_PROVISIONING=1 #state when provisioning
-STATUS_UPGRADING=1 # state when firmware upgrade is in progress
-STATUS_UPGRADABLE=0 #state when firmware updates are available
-STATUS_HEARTBEAT_MISSED=1 #state when controller missed some heartbeat-'pings'
-STATUS_NOT_NAMED=1 #state when there are devices with the name 'null'
-STATUS_NOT_ADOPTED=1 #state when there are unadopted devices
+STATUS_PROVISIONING=1
+STATUS_UPGRADING=1
+STATUS_UPGRADABLE=0
+STATUS_HEARTBEAT_MISSED=1
 
 ###############################################################
+# you should not need to edit anything below here!
+###############################################################
 
-getValue() {
- SERIAL=$1
- QUERY=$2
- Q1=" .data | .[] | select(.serial | contains($SERIAL))"
- Q2=" $QUERY "
- local VALUE=$(cat $DEVICES_FILE | jq "$Q1" | jq $Q2)
- echo $VALUE
-}
-
-# define temporary files
-FILE_SUFFIX=$$ #random seed (mainly to keep the suffix the same for debugging purposes)
-FILE_PREFIX=/tmp/unifi-check
-
-NOTADOPTED=false #set unadopted devices state to fale by default
-NOTNAMED=false #set unnamed devices state to fale by default
-
-DEVICES_FILE=$FILE_PREFIX-devices-$RND_SEED #file for a list of all devices
-SITES_FILE=$FILE_PREFIX-sites-$RND_SEED #file with list of all sites
-COOKIE_FILE=$FILE_PREFIX-cookie-$RND_SEED #cookie for the logged in session
-STATUS_FILE=$FILE_PREFIX-status-$RND_SEED #file with controller status
-CURL_CMD="curl --silent --cookie ${COOKIE_FILE} --cookie-jar ${COOKIE_FILE} $CURLOPTS" #the curl command used to pull the data from the WebUI
+# init counters
+NUM_NOTNAMED=0
+NUM_NOTADOPTED=0
 
 # create the temporary files
-rm -f $DEVICES_FILE $COOKIE_FILE $SITES_FILE $STATUS_FILE #remove them if they already exist
-touch $DEVICES_FILE $COOKIE_FILE $SITES_FILE $STATUS_FILE #create a empty file
-chmod 600 $DEVICES_FILE $COOKIE_FILE $SITES_FILE $STATUS_FILE #set permissions strictly
+COOKIE_FILE=/tmp/unifi-check-cookie-$$
+touch $COOKIE_FILE
+chmod 600 $COOKIE_FILE
+
+CURL_CMD="curl --silent --cookie ${COOKIE_FILE} --cookie-jar ${COOKIE_FILE} $CURLOPTS" #the curl command used to pull the data from the WebUI
+
+getValue() {
+	echo $DEVICES | jq " .data | .[] | select(.serial | contains($1))" | jq " $2 " | sed -e 's/"//g'
+}
 
 ###############################################################
 
-${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $BASEURL/api/login > /dev/null #login to the controller
-
-
-# check if site auto-detection should be used when no sites were specified
-if ! [ $SITES ]; then
- ${CURL_CMD} $BASEURL/api/self/sites > $SITES_FILE #write found sites to file
- SITES_NAME=$(cat $SITES_FILE | jq '.data | .[] | .name') #gets all site names
- SITES=$(echo $SITES_NAME | sed -e 's/"//g')
+#try to login
+if ! $(${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $BASEURL/api/login > /dev/null) ; then
+	echo "2 UniFi-Controller - Controller unavailable! Login failed or no route to API!"
+	exit 1
 fi
+
+# get some basic information about the controller
+CTL_STATUS=$(${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo)
+BUILD=$(echo $CTL_STATUS | jq '.data | .[] | .build' | sed -e 's/"//g')
+UPDATE_STATUS=$(echo $CTL_STATUS | jq '.data | .[] | .update_available')
+
+if [ $UPDATE_STATUS = "true" ]; then
+        BUILD="$BUILD (Update avaiable!)"
+        STATUS=$STATUS_UPGRADABLE
+elif [ $UPDATE_STATUS = "false" ]; then
+	STATUS=0
+else	STATUS=3
+fi
+
+#output the controllers version
+echo "$STATUS UniFi-Controller - Build $BUILD, Check-Script $SCRIPTBUILD"
+
+# get a list of all sites on the controller
+SITES=$(echo $(${CURL_CMD} $BASEURL/api/self/sites) | jq '.data | .[] | .name' | sed -e 's/"//g')
 
 # loop over all sites
 for SITE in $SITES; do
+	((NUM_SITES=NUM_SITES+1))
+	DEVICES=$(${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device)
+	SERIALS=$(echo $DEVICES | jq '.data | .[] | .serial')
 
- ${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device > $DEVICES_FILE #get all devices on that site
- SERIALS=$(cat $DEVICES_FILE | jq '.data | .[] | .serial') # iterate over the acquired serials
+	# loop over all serial numbers (devices) on current site
+	for SERIAL in $SERIALS; do
+		((NUM_DEVICES=NUM_DEVICES+1))
+		# check if the device is already adopted. if not: set controller's state to warning
+		if [ $(getValue $SERIAL .adopted) = "false" ]; then
+			((NUM_NOTADOPTED=NUM_NOTADOPTED+1))
+			break
+		fi
 
- # loop over all serial numbers (devices) on current site
- for S in $SERIALS; do
-  DEVICE_NAME=$(getValue $S .name | sed -e 's/"//g; s/\ /_/g')
-  CLIENTS=$(getValue $S .num_sta)
-  LOAD=$(getValue $S .sys_stats.loadavg_5 | sed -e 's/"//g; s/\ /_/g')
-  UPGRADEABLEFW=$(getValue $S .upgrade_to_firmware | sed -e 's/"//g')
-  VERSION=$(getValue $S .version | sed -e 's/"//g')
-  STATE=$(getValue $S .state)
-  ADOPTED=$(getValue $S .adopted)
-  STATUS=3 # set the service-state in check_mk, default is unknown if something weird happens
+		# check if the device is 'null' which means it is not named at all
+		DEVICE_NAME=$(getValue $SERIAL .name)
+		if [ $DEVICE_NAME = "null" ]; then
+			((NUM_NOTNAMED=NUM_NOTNAMED+1))
+			break
+		fi
 
-  # check if the device is already adopted. if not: set controller's state to warning
-  if [ $ADOPTED = "false" ]; then
-        NOTADOPTED=true
-        break
-  fi
+		# if named and adopted, get more info
+		CLIENTS=$(getValue $SERIAL .num_sta)
+		LOAD=$(getValue $SERIAL .sys_stats.loadavg_5)
+		UPGRADEABLEFW=$(getValue $SERIAL .upgrade_to_firmware)
+		VERSION=$(getValue $SERIAL .version)
+		STATE=$(getValue $SERIAL .state)
+		STATUS=3 # set the service-state in check_mk, default is unknown if something weird happens
 
-  # check if the device is 'null' which means it is not named at all
-  if [ $DEVICE_NAME = "null" ]; then
-        NOTNAMED=true
-        break
-  fi
+		# determining the device's state
+		# https://community.ui.com/questions/Fetching-current-UAP-status/88a197f9-3530-4580-8f0b-eca43b41ba6b
+		case $STATE in
+			1)	STATUS=0
+				DESCRIPTION="CONNECTED";;
 
-  # determining the device's state
-  # https://community.ui.com/questions/Fetching-current-UAP-status/88a197f9-3530-4580-8f0b-eca43b41ba6b
-  case $STATE in
-   1)      STATUS=0
-    DESCRIPTION="CONNECTED";;
+			0)	STATUS=2
+				DESCRIPTION="DISCONNECTED!";;
 
-   0)      STATUS=2
-    DESCRIPTION="DISCONNECTED!";;
+			4)	STATUS=$STATUS_UPGRADING
+				DESCRIPTION="UPGRADING";;
 
-   4)      STATUS=$STATUS_UPGRADING
-    DESCRIPTION="UPGRADING";;
+			5)	STATUS=$STATUS_PROVISIONING
+				DESCRIPTION="PROVISIONING";;
 
-   5)      STATUS=$STATUS_PROVISIONING
-    DESCRIPTION="PROVISIONING";;
+			6)	STATUS=$STATUS_HEARTBEAT_MISSED
+				DESCRIPTION="heartbeat missed!";;
 
-   6)      STATUS=$STATUS_HEARTBEAT_MISSED
-    DESCRIPTION="heartbeat missed!";;
+			*)	DESCRIPTION="Unkown state ($STATE)!";;
+		esac
 
-   *)      DESCRIPTION="Unkown state ($STATE)!";;
-   esac
+		# make a upgrade check
+		if [ "$UPGRADEABLEFW" != "$VERSION" ] && [ "$UPGRADEABLEFW" != "null" ]; then
+			UPDATESTRING=" ($UPGRADEABLEFW avaible)"
+			if [ $STATUS -eq 0 ]; then STATUS=$STATUS_UPGRADABLE; fi
+		else
+			UPDATESTRING=""
+		fi
 
-  # make a upgrade check
-  if [ "$UPGRADEABLEFW" != "$VERSION" ] && [ "$UPGRADEABLEFW" != "null" ]; then
-UPDATESTRING=" ($UPGRADEABLEFW avaible)"
-   if [ $STATUS -eq 0 ]; then STATUS=$STATUS_UPGRADABLE; fi
-  else
-   UPDATESTRING=""
-  fi
-
-  echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load=$LOAD $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING" #check_mk output
- done
+		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load=$LOAD $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING"
+	done
 done
 
-
-# get some basic information about the controller
-${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo > $STATUS_FILE
-CONTROLLERBUILD=$(cat $STATUS_FILE | jq '.data | .[] | .build' | sed -e 's/"//g')
-UPDATE_STATUS=$(cat $STATUS_FILE | jq '.data | .[] | .update_available')
-if [ $UPDATE_STATUS = "true" ]; then
-        CONTROLLERBUILD="$CONTROLLERBUILD (Update avaiable!)"
-        STATUS=$STATUS_UPGRADABLE
-elif [ $UPDATE_STATUS = "false" ]; then
-        STATUS=0
+if [ "$NUM_NOTADOPTED" -eq 0 ] && [ "$NUM_NOTNAMED" -eq 0 ]; then
+	echo "0 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites"
 else
-        STATUS=3
+	echo "1 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites - found $NUM_NOTNAMED unnamed devices and $NUM_NOTADOPTED unadopted devices!"
 fi
 
-echo "$STATUS UniFi-Controller - Build $CONTROLLERBUILD" #output the controllers version
+###############################################################
 
-
-unset DESCRIPTION
-
-
-if [ "$NOTNAMED" = "true" ]; then
-        STATUS=1
-        DESCRIPTION=" Unnamed Devices found!"
-
-elif [ $UPDATE_STATUS = "false" ]; then
-        STATUS=0
-else
-        STATUS=3
-fi
-if [ "$NOTADOPTED" = "true" ]; then
-        STATUS=1
-        DESCRIPTION=$DESCRIPTION" Unadopted Devices found!"
-
-elif [ $UPDATE_STATUS = "false" ]; then
-        DESCRIPTION=" No unnamed or unadopted devices found.."
-else
-        STATUS=3
-fi
-
-
-echo $STATUS UniFi-Devices -$DESCRIPTION
-
-
-${CURL_CMD} $BASEURL/logout #finally close the session
-rm -f $DEVICES_FILE $COOKIE_FILE $SITES_FILE $STATUS_FILE # clean temporary files from earlier
+#finally close the session and delete cookie file
+${CURL_CMD} $BASEURL/logout
+rm -f $COOKIE_FILE
