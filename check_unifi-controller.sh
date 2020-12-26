@@ -1,6 +1,6 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="version 2020-12-26"
+SCRIPTBUILD="BUILD 2020-12-26 v2"
 
 ###############################################################
 
@@ -34,11 +34,19 @@ COOKIE_FILE=/tmp/unifi-check-cookie-$$
 touch $COOKIE_FILE
 chmod 600 $COOKIE_FILE
 
-CURL_CMD="curl --silent --cookie ${COOKIE_FILE} --cookie-jar ${COOKIE_FILE} $CURLOPTS" #the curl command used to pull the data from the WebUI
+#the curl command used to pull the data from the WebUI
+CURL_CMD="curl --silent --cookie ${COOKIE_FILE} --cookie-jar ${COOKIE_FILE} $CURLOPTS"
 
-getValue() {
-	echo $DEVICES | jq " .data | .[] | select(.serial | contains($1))" | jq " $2 " | sed -e 's/"//g'
+getDeviceInfo() {
+	echo $DEVICES | jq " .data | .[] | select(.serial | contains($1))"
 }
+getValueFromDevice() {
+	echo $DEVICE | jq " $1 " | sed -e 's/"//g'
+}
+#getSiteName() {
+	# get the Site description instead of the cryptic name / id
+#	echo $DEVICES | jq " .data | .[] | select(.name | contains("default"))" | jq " .desc "
+#}
 
 ###############################################################
 
@@ -69,32 +77,41 @@ SITES=$(echo $(${CURL_CMD} $BASEURL/api/self/sites) | jq '.data | .[] | .name' |
 
 # loop over all sites
 for SITE in $SITES; do
+
+	# counter of sites
 	((NUM_SITES=NUM_SITES+1))
+
+	# get all info of all devices of that site as json
 	DEVICES=$(${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device)
-	SERIALS=$(echo $DEVICES | jq '.data | .[] | .serial')
 
 	# loop over all serial numbers (devices) on current site
-	for SERIAL in $SERIALS; do
+	for SERIAL in $(echo $DEVICES | jq '.data | .[] | .serial'); do
+
+		# counter of devices
 		((NUM_DEVICES=NUM_DEVICES+1))
+
+		# select one device
+		DEVICE=$(getDeviceInfo $SERIAL)
+
 		# check if the device is already adopted. if not: set controller's state to warning
-		if [ $(getValue $SERIAL .adopted) = "false" ]; then
+		if [ $(getValueFromDevice .adopted) = "false" ]; then
 			((NUM_NOTADOPTED=NUM_NOTADOPTED+1))
 			break
 		fi
 
 		# check if the device is 'null' which means it is not named at all
-		DEVICE_NAME=$(getValue $SERIAL .name)
+		DEVICE_NAME=$(getValueFromDevice .name)
 		if [ $DEVICE_NAME = "null" ]; then
 			((NUM_NOTNAMED=NUM_NOTNAMED+1))
 			break
 		fi
 
 		# if named and adopted, get more info
-		CLIENTS=$(getValue $SERIAL .num_sta)
-		LOAD=$(getValue $SERIAL .sys_stats.loadavg_5)
-		UPGRADEABLEFW=$(getValue $SERIAL .upgrade_to_firmware)
-		VERSION=$(getValue $SERIAL .version)
-		STATE=$(getValue $SERIAL .state)
+		CLIENTS=$(getValueFromDevice .num_sta)
+		UPGRADEABLEFW=$(getValueFromDevice .upgrade_to_firmware)
+		VERSION=$(getValueFromDevice .version)
+		STATE=$(getValueFromDevice .state)
+		#SCORE=$(getValueFromDevice .satisfaction)
 		STATUS=3 # set the service-state in check_mk, default is unknown if something weird happens
 
 		# determining the device's state
@@ -126,7 +143,7 @@ for SITE in $SITES; do
 			UPDATESTRING=""
 		fi
 
-		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|load=$LOAD $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING"
+		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING"
 	done
 done
 
