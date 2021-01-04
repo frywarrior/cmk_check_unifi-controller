@@ -1,5 +1,6 @@
 #!/bin/bash
-# script to list all UniFi devices from the given controller and get some infos https://github.com/binarybear-de/cmk_check_unifi-controller
+# script to list all UniFi devices from the given controller and get some infos
+# https://github.com/binarybear-de/cmk_check_unifi-controller
 SCRIPTBUILD="BUILD 2020-12-26 v3"
 
 ###############################################################
@@ -34,33 +35,41 @@ getDeviceInfo() {
 	echo $DEVICES | jq " .data | .[] | select(.serial | contains($1))"
 }
 getValueFromDevice() {
-	echo $DEVICE | jq " $1 " | sed -e 's/"//g'
+	echo $JSON | jq " .$1 " | sed -e 's/"//g'
+}
+getValueFromController() {
+	echo $JSON | jq ".data | .[] | .$1" | sed -e 's/"//g'
 }
 
 ###############################################################
+# block 1: login to controller and get some controller status
+###############################################################
 
-#try to login
+#try to login - if this fails: exit
 if ! $(${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $BASEURL/api/login > /dev/null) ; then
 	echo "2 UniFi-Controller - Controller unavailable! Login failed or no route to API!"
 	exit 1
 fi
 
 # get some basic information about the controller
-CTL_STATUS=$(${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo)
-BUILD=$(echo $CTL_STATUS | jq '.data | .[] | .build' | sed -e 's/"//g')
-UPDATE_STATUS=$(echo $CTL_STATUS | jq '.data | .[] | .update_available')
+JSON=$(${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo)
 
-if [ $UPDATE_STATUS = "true" ]; then
+if [ $(getValueFromController update_available) = "true" ]; then
         BUILD="$BUILD (Update avaiable!)"
         STATUS=$STATUS_UPGRADABLE
-elif [ $UPDATE_STATUS = "false" ]; then
-	STATUS=0
-else	STATUS=3
 fi
-
+if [ $(getValueFromController autobackup) = "false" ]; then
+	DESCRIPTION="$DESCRIPTION No Auto-Backup configured!"
+	# check if status is "better" or equal than what is about to be set. E.g. to prevent a previous CRIT event to be reduced to WARN
+	if [ $STATUS -le $NOAUTOBACKUP ]; then STATUS=$STATUS_NOAUTOBACKUP; fi
+fi
 #output the controllers version
-echo "$STATUS UniFi-Controller - Build $BUILD, Check-Script $SCRIPTBUILD"
+echo "$STATUS UniFi-Controller - $DESCRIPTION Hostname: $(getValueFromController hostname), Build $(getValueFromController build), Check-Script $SCRIPTBUILD"
 
+###############################################################
+# block 2: get every site's configuration
+###############################################################
+ 
 # get a list of all sites on the controller
 SITES=$(echo $(${CURL_CMD} $BASEURL/api/self/sites) | jq '.data | .[] | .name' | sed -e 's/"//g')
 
@@ -80,27 +89,28 @@ for SITE in $SITES; do
 		((NUM_DEVICES=NUM_DEVICES+1))
 
 		# select one device
-		DEVICE=$(getDeviceInfo $SERIAL)
+		JSON=$(getDeviceInfo $SERIAL)
 
 		# check if the device is already adopted. if not: set controller's state to warning
-		if [ $(getValueFromDevice .adopted) = "false" ]; then
+		if [ $(getValueFromDevice adopted) = "false" ]; then
 			((NUM_NOTADOPTED=NUM_NOTADOPTED+1))
 			break
 		fi
 
 		# check if the device is 'null' which means it is not named at all
-		DEVICE_NAME=$(getValueFromDevice .name)
+		DEVICE_NAME=$(getValueFromDevice name)
 		if [ $DEVICE_NAME = "null" ]; then
 			((NUM_NOTNAMED=NUM_NOTNAMED+1))
 			break
 		fi
-
 		# if named and adopted, get more info
-		CLIENTS=$(getValueFromDevice .num_sta)
-		UPGRADEABLEFW=$(getValueFromDevice .upgrade_to_firmware)
-		VERSION=$(getValueFromDevice .version)
-		STATE=$(getValueFromDevice .state)
-		#SCORE=$(getValueFromDevice .satisfaction)
+
+		CLIENTS=$(getValueFromDevice num_sta)
+		UPGRADEABLEFW=$(getValueFromDevice upgrade_to_firmware)
+		VERSION=$(getValueFromDevice version)
+		STATE=$(getValueFromDevice state)
+		SCORE=$(getValueFromDevice satisfaction)
+		LOCATING=$(getValueFromDevice locating)
 		STATUS=3 # set the service-state in check_mk, default is unknown if something weird happens
 
 		# determining the device's state
@@ -121,20 +131,29 @@ for SITE in $SITES; do
 			6)	STATUS=$STATUS_HEARTBEAT_MISSED
 				DESCRIPTION="heartbeat missed!";;
 
+			10)	STATUS=2
+				DESCRIPTION="Adoption failed!";;
+
 			*)	DESCRIPTION="Unkown state ($STATE)!";;
 		esac
 
 		# make a upgrade check
 		if [ "$UPGRADEABLEFW" != "$VERSION" ] && [ "$UPGRADEABLEFW" != "null" ]; then
-			UPDATESTRING=" ($UPGRADEABLEFW avaible)"
-			if [ $STATUS -eq 0 ]; then STATUS=$STATUS_UPGRADABLE; fi
-		else
-			UPDATESTRING=""
+			VERSION="$VERSION ($UPGRADEABLEFW avaible)"
+			# check if status is "better" than upgradable. Prevent a previous CRIT event to be reduced to WARN simply because device is upgradable...
+			if [ $STATUS -le $STATUS_UPGRADABLE ]; then STATUS=$STATUS_UPGRADABLE; fi
 		fi
-
-		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION$UPDATESTRING"
+		if [ $LOCATING = "true" ]; then
+			LOCATOR="Locator is enabled!"
+			STATE=1
+		fi
+		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
 	done
 done
+
+###############################################################
+# block 3: summary of all devices
+###############################################################
 
 if [ "$NUM_NOTADOPTED" -eq 0 ] && [ "$NUM_NOTNAMED" -eq 0 ]; then
 	echo "0 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites"
