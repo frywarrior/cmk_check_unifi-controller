@@ -31,7 +31,7 @@ apt install jq \
 && chmod +x $CMK_LOCAL \
 && wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/unifi.cfg -O $CMK_CONFIG \
 && chmod 700 $CMK_CONFIG \
-&& chown root: $CMK_CONFIG
+&& chown root: $CMK_CONFIG \
 && unset CMK_LOCAL CMK_CONFIG
 ```
 
