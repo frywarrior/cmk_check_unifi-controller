@@ -18,13 +18,14 @@
 ## Requirements 
 * UniFi Controller Software (can also be on remote host)
 * Check_MK Agent
+* Packages: jq, curl, wget
 
 ## Installation / Setup
 
 ### One-liner
 The I-am-lazy-just-install method: Just copy-paste the whole block in the shell on Debian-based systems
 ```
-apt install jq \
+apt install jq curl wget -y \
 && CMK_LOCAL=/usr/lib/check_mk_agent/local/check_unifi-controller.sh \
 && CMK_CONFIG=/etc/check_mk/unifi.cfg \
 && wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/check_unifi-controller.sh -O $CMK_LOCAL \
@@ -36,7 +37,7 @@ apt install jq \
 ```
 
 ### manual
-* Install jq package
+* Install the packages "jq, curl, wget"
 * Move the ```check_unifi-controller.sh``` into the local dir ```/usr/lib/check_mk_agent/local``` 
 * Move the ```unifi.cfg``` config file into Check_MK's config dir ```/etc/check_mk/unifi.cfg```
 * Set permissions of ```unifi.cfg``` to 700 with owner root
