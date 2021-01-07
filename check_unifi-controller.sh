@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos
 # https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2020-12-26 v3"
+SCRIPTBUILD="BUILD 2021-01-07"
 
 ###############################################################
 # you should not need to edit anything here - use the config file!
