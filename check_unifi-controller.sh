@@ -68,7 +68,7 @@ fi
 #fi
 
 #output the controllers version
-echo "$STATUS UniFi-Controller - $DESCRIPTION Hostname: $(getValueFromController hostname), Build $(getValueFromController build), Check-Script $SCRIPTBUILD"
+echo "$STATUS UniFi-Controller - Hostname: $(getValueFromController hostname), Build $(getValueFromController build), Check-Script $SCRIPTBUILD"
 
 ###############################################################
 # block 2: get every site's configuration
