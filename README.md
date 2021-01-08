@@ -36,6 +36,14 @@ apt install jq curl wget -y \
 && unset CMK_LOCAL CMK_CONFIG
 ```
 
+### updating
+```
+CMK_LOCAL=/usr/lib/check_mk_agent/local/check_unifi-controller.sh \
+&& wget https://raw.githubusercontent.com/binarybear-de/cmk_check_unifi-controller/master/check_unifi-controller.sh -O $CMK_LOCAL \
+&& chmod +x $CMK_LOCAL \
+&& unset CMK_LOCAL
+```
+
 ### manual
 * Install the packages "jq, curl, wget"
 * Move the ```check_unifi-controller.sh``` into the local dir ```/usr/lib/check_mk_agent/local``` 
