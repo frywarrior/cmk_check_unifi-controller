@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos
 # https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2021-01-07"
+SCRIPTBUILD="BUILD 2020-12-26 v3"
 
 ###############################################################
 # you should not need to edit anything here - use the config file!
@@ -19,9 +19,10 @@ fi
 # source the settings from file
 . $CONFIG_FILE
 
-# init counters
+# init counters and variables
 NUM_NOTNAMED=0
 NUM_NOTADOPTED=0
+STATUS=0
 
 # create the temporary files
 COOKIE_FILE=/tmp/unifi-check-cookie-$$
@@ -58,11 +59,14 @@ if [ $(getValueFromController update_available) = "true" ]; then
         BUILD="$BUILD (Update avaiable!)"
         STATUS=$STATUS_UPGRADABLE
 fi
-if [ $(getValueFromController autobackup) = "false" ]; then
-	DESCRIPTION="$DESCRIPTION No Auto-Backup configured!"
-	# check if status is "better" or equal than what is about to be set. E.g. to prevent a previous CRIT event to be reduced to WARN
-	if [ $STATUS -le $NOAUTOBACKUP ]; then STATUS=$STATUS_NOAUTOBACKUP; fi
-fi
+
+# currently disabled because API responds with false even if autobackup is on and configured
+#if [ $(getValueFromController autobackup) = "false" ]; then
+#	DESCRIPTION="$DESCRIPTION No Auto-Backup configured!"
+#	# check if status is "better" or equal than what is about to be set. E.g. to prevent a previous CRIT event to be reduced to WARN
+#	if [ $STATUS -le $NOAUTOBACKUP ]; then STATUS=$STATUS_NOAUTOBACKUP; fi
+#fi
+
 #output the controllers version
 echo "$STATUS UniFi-Controller - $DESCRIPTION Hostname: $(getValueFromController hostname), Build $(getValueFromController build), Check-Script $SCRIPTBUILD"
 
@@ -156,7 +160,7 @@ done
 ###############################################################
 
 if [ "$NUM_NOTADOPTED" -eq 0 ] && [ "$NUM_NOTNAMED" -eq 0 ]; then
-	echo "0 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites"
+	echo "0 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites - no unnamed or unadopted devices found"
 else
 	echo "1 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites - found $NUM_NOTNAMED unnamed devices and $NUM_NOTADOPTED unadopted devices!"
 fi
