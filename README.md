@@ -74,12 +74,3 @@ Running the script should give you something like this:
 Now you can refresh the services of your unifi controller host in the webUI of Check_Mk and you get the new services in your inventory.
 
 ![Screenshot of check_mk](https://github.com/binarybear-de/cmk_check_unifi-controller/blob/master/example1.png)
-
-## Known bugs / future ToDo
-
-* Device's name must be unique even over multiple sites - you can change the service name to the MAC address to get around...
-* Device's name is "null" if not named at all - wont be fixed, name your devices!
-* Adapt this mechanism to a active check from the monitoring server itself to centralize this function
-* triggers for rogue-aps and other issues like DHCP-Timeout, experience
-* mapping the description to the site name
-* trigger for unarchived warnings
