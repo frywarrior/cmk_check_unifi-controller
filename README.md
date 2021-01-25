@@ -68,9 +68,3 @@ Running the script should give you something like this:
 0 UniFi_AP-A clients=6|load=0.40 CONNECTED, Site: office, Clients: 6, Firmware: 4.3.20.11298 avaible
 0 UniFi-Devices devices=6|sites=1|unamed=0|unadopted=0 6 devices on 1 sites
 ```
-
-## Check_MK
-
-Now you can refresh the services of your unifi controller host in the webUI of Check_Mk and you get the new services in your inventory.
-
-![Screenshot of check_mk](https://github.com/binarybear-de/cmk_check_unifi-controller/blob/master/example1.png)
