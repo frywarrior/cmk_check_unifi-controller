@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos
 # https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2021-01-08"
+SCRIPTBUILD="BUILD 2021-02-27"
 
 ###############################################################
 # you should not need to edit anything here - use the config file!
@@ -36,7 +36,8 @@ getDeviceInfo() {
 	echo $DEVICES | jq " .data | .[] | select(.serial | contains($1))"
 }
 getValueFromDevice() {
-	echo $JSON | jq " .$1 " | sed -e 's/"//g'
+	# read value, replace spaces with underscores and strip quotes (see issue #7)
+	echo $JSON | jq " .$1 " | sed -e 's/ /_/g' | sed -e 's/"//g'
 }
 getValueFromController() {
 	echo $JSON | jq ".data | .[] | .$1" | sed -e 's/"//g'
@@ -151,7 +152,8 @@ for SITE in $SITES; do
 			LOCATOR="Locator is enabled!"
 			STATE=1
 		fi
-		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+		# final output per device including infos and metrics
+		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
 	done
 done
 
