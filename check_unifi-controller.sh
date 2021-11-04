@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos
 # https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2021-11-04-v2"
+SCRIPTBUILD="BUILD 2021-11-04-v3"
 
 ###############################################################
 # you should not need to edit anything here - use the config file!
@@ -95,9 +95,6 @@ for SITE in $SITES; do
 	# loop over all serial numbers (devices) on current site
 	for SERIAL in $(echo $DEVICES | jq '.data | .[] | .serial'); do
 
-		# counter of devices
-		((NUM_DEVICES=NUM_DEVICES+1))
-
 		# select one device
 		JSON=$(getDeviceInfo $SERIAL)
 
@@ -106,6 +103,9 @@ for SITE in $SITES; do
 			((NUM_NOTADOPTED=NUM_NOTADOPTED+1))
 			break
 		fi
+
+		# increment device counter - only if device is adopted!
+		((NUM_DEVICES=NUM_DEVICES+1))
 
 		# check if the device is 'null' which means it is not named at all and skip to next device
 		DEVICE_NAME=$(getValueFromDevice name)
@@ -159,7 +159,7 @@ for SITE in $SITES; do
 		fi
 		# final output per device including infos and metrics
 		if [ "$USE_SITE_PREFIX" = "1" ]; then
-			echo "$STATUS UniFi_$SITE\_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+			echo "$STATUS UniFi_$SITE-$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
 		else
 			echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
 		fi
@@ -173,6 +173,7 @@ done
 if [ "$NUM_NOTADOPTED" -eq 0 ] && [ "$NUM_NOTNAMED" -eq 0 ]; then
 	echo "0 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites - no unnamed or unadopted devices found"
 else
+	NUM_NOTADOPTED=$((NUM_NOTADOPTED/NUM_SITES))
 	echo "1 UniFi-Devices devices=$NUM_DEVICES|sites=$NUM_SITES|unamed=$NUM_NOTNAMED|unadopted=$NUM_NOTADOPTED $NUM_DEVICES devices on $NUM_SITES sites - found $NUM_NOTNAMED unnamed devices and $NUM_NOTADOPTED unadopted devices!"
 fi
 
