@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos
 # https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2021-02-27"
+SCRIPTBUILD="BUILD 2021-11-04"
 
 ###############################################################
 # you should not need to edit anything here - use the config file!
@@ -25,9 +25,7 @@ NUM_NOTADOPTED=0
 STATUS=0
 
 # create the temporary files
-COOKIE_FILE=/tmp/unifi-check-cookie-$$
-touch $COOKIE_FILE
-chmod 600 $COOKIE_FILE
+COOKIE_FILE=/tmp/unifi-check-cookie
 
 #the curl command used to pull the data from the WebUI
 CURL_CMD="curl --silent --cookie ${COOKIE_FILE} --cookie-jar ${COOKIE_FILE} $CURLOPTS"
@@ -43,30 +41,37 @@ getValueFromController() {
 	echo $JSON | jq ".data | .[] | .$1" | sed -e 's/"//g'
 }
 
+loginController() {
+	touch $COOKIE_FILE
+	chmod 600 $COOKIE_FILE
+	if ! $(${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $BASEURL/api/login > /dev/null) ; then
+	        echo "2 UniFi-Controller - Controller unavailable! Login failed or no route to API!"
+        	exit 1
+	fi
+}
+
+
 ###############################################################
 # block 1: login to controller and get some controller status
 ###############################################################
 
-#try to login - if this fails: exit
-if ! $(${CURL_CMD} --data "{\"username\":\"$USERNAME\", \"password\":\"$PASSWORD\"}" $BASEURL/api/login > /dev/null) ; then
-	echo "2 UniFi-Controller - Controller unavailable! Login failed or no route to API!"
-	exit 1
+# check if there's an existing login cookie - else try to login interactively
+if [ ! -e "$COOKIE_FILE" ]; then
+	loginController
 fi
 
-# get some basic information about the controller
+# get some basic information about the controller - if this fails the cookie may has expired. Then deleting cookie, login again and try again (UGLY)
 JSON=$(${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo)
+if [[ "$JSON" = *"LoginRequired"* ]]; then
+	rm $COOKIE_FILE
+	loginController
+	JSON=$(${CURL_CMD} $BASEURL/api/s/default/stat/sysinfo)
+fi
 
-if [ $(getValueFromController update_available) = "true" ]; then
+if [ "$(getValueFromController update_available)" = "true" ]; then
         BUILD="$BUILD (Update avaiable!)"
         STATUS=$STATUS_UPGRADABLE
 fi
-
-# currently disabled because API responds with false even if autobackup is on and configured
-#if [ $(getValueFromController autobackup) = "false" ]; then
-#	DESCRIPTION="$DESCRIPTION No Auto-Backup configured!"
-#	# check if status is "better" or equal than what is about to be set. E.g. to prevent a previous CRIT event to be reduced to WARN
-#	if [ $STATUS -le $NOAUTOBACKUP ]; then STATUS=$STATUS_NOAUTOBACKUP; fi
-#fi
 
 #output the controllers version
 echo "$STATUS UniFi-Controller - Hostname: $(getValueFromController hostname), Build $(getValueFromController build), Check-Script $SCRIPTBUILD"
@@ -96,15 +101,15 @@ for SITE in $SITES; do
 		# select one device
 		JSON=$(getDeviceInfo $SERIAL)
 
-		# check if the device is already adopted. if not: set controller's state to warning
-		if [ $(getValueFromDevice adopted) = "false" ]; then
+		# check if the device is already adopted. if not: set controller's state to warning and skip to next device
+		if [ "$(getValueFromDevice adopted)" = "false" ]; then
 			((NUM_NOTADOPTED=NUM_NOTADOPTED+1))
 			break
 		fi
 
-		# check if the device is 'null' which means it is not named at all
+		# check if the device is 'null' which means it is not named at all and skip to next device
 		DEVICE_NAME=$(getValueFromDevice name)
-		if [ $DEVICE_NAME = "null" ]; then
+		if [ "$DEVICE_NAME" = "null" ]; then
 			((NUM_NOTNAMED=NUM_NOTNAMED+1))
 			break
 		fi
@@ -148,7 +153,7 @@ for SITE in $SITES; do
 			# check if status is "better" than upgradable. Prevent a previous CRIT event to be reduced to WARN simply because device is upgradable...
 			if [ $STATUS -le $STATUS_UPGRADABLE ]; then STATUS=$STATUS_UPGRADABLE; fi
 		fi
-		if [ $LOCATING = "true" ]; then
+		if [ "$LOCATING" = "true" ]; then
 			LOCATOR="Locator is enabled!"
 			STATE=1
 		fi
@@ -168,7 +173,3 @@ else
 fi
 
 ###############################################################
-
-#finally close the session and delete cookie file
-${CURL_CMD} $BASEURL/logout
-rm -f $COOKIE_FILE
