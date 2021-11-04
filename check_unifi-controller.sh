@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to list all UniFi devices from the given controller and get some infos
 # https://github.com/binarybear-de/cmk_check_unifi-controller
-SCRIPTBUILD="BUILD 2021-11-04"
+SCRIPTBUILD="BUILD 2021-11-04-v2"
 
 ###############################################################
 # you should not need to edit anything here - use the config file!
@@ -158,7 +158,11 @@ for SITE in $SITES; do
 			STATE=1
 		fi
 		# final output per device including infos and metrics
-		echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+		if [ "$USE_SITE_PREFIX" = "1" ]; then
+			echo "$STATUS UniFi_$SITE\_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+		else
+			echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+		fi
 	done
 done
 
