@@ -13,7 +13,7 @@
 * Needed API functions from the external file were merged into the script file.
 * Optimized the parsing process **(0m:18s vs 1m:45s for 167 devices on demo.unifi.com)**
 * The Check_MK's service name is now mapped with UniFi_<Device's Name> which may be a problem when using one name twice (e.g. on two sites)
-* Permission checking of the config parameters to keep the credentials safe
+* Permission checking of the config file to keep the credentials safe
 
 ## Requirements 
 * UniFi Controller Software (can also be on remote host)
