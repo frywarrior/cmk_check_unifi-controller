@@ -87,7 +87,7 @@ _DESCS="${DESCS// /_}"
 
 DESCS=()
 
-for des in $DESCSS; do
+for des in $_DESCS; do
 	DESCS+=("$des")
 done
 
