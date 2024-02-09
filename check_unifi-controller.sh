@@ -82,12 +82,22 @@ echo "$STATUS UniFi-Controller - Hostname: $(getValueFromController hostname), B
  
 # get a list of all sites on the controller
 SITES=$(echo $(${CURL_CMD} $BASEURL/api/self/sites) | jq '.data | .[] | .name' | sed -e 's/"//g')
+DESCS=$(echo $(${CURL_CMD} $BASEURL/api/self/sites) | jq '.data | .[] | .desc' | sed -e 's/"//g')
+_DESCS="${DESCS// /_}"
+
+DESCS=()
+
+for des in $DESCSS; do
+	DESCS+=("$des")
+done
 
 # loop over all sites
 for SITE in $SITES; do
 
 	# counter of sites
 	((NUM_SITES=NUM_SITES+1))
+	
+	DESC=${DESCS[$NUM_SITES-1]}
 
 	# get all info of all devices of that site as json
 	DEVICES=$(${CURL_CMD} --data "{}" $BASEURL/api/s/$SITE/stat/device)
@@ -159,9 +169,13 @@ for SITE in $SITES; do
 		fi
 		# final output per device including infos and metrics
 		if [ "$USE_SITE_PREFIX" = "1" ]; then
-			echo "$STATUS UniFi_$SITE-$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+			#echo "$STATUS UniFi_$SITE-$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+			echo "$STATUS UniFi_$SITE-$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $DESC, Clients: $CLIENTS, Firmware: $VERSION"
+
 		else
-			echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+			#echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $SITE, Clients: $CLIENTS, Firmware: $VERSION"
+			echo "$STATUS UniFi_$DEVICE_NAME clients=$CLIENTS|score=$SCORE;;;-10;100 $DESCRIPTION, Site: $DESC, Clients: $CLIENTS, Firmware: $VERSION"
+		
 		fi
 	done
 done
