@@ -129,7 +129,7 @@ class Unifi:
         elif state == 6:
             self.status = 1
             return "heartbeat missed!"
-        elif state == 10
+        elif state == 10:
             self.status = 2
             return "Adoption failed!"
         else:
