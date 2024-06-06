@@ -114,28 +114,27 @@ class Unifi:
             print(f"1 UniFi-Devices devices={NUM_DEVICES}|sites={NUM_SITES}|unamed={NUM_NOTNAMED}|unadopted={NUM_NOTADOPTED} {NUM_DEVICES} devices on {NUM_SITES} sites - found {NUM_NOTNAMED} unnamed devices and {NUM_NOTADOPTED} unadopted devices!")
 
     def StateToDesc(self, state):
-        match state:
-            case 1:
-                self.status = 0
-                return "CONNECTED"
-            case 0:
-                self.status = 2
-                return "DISCONNECTED!"
-            case 4:
-                self.status = 1
-                return "UPGRADING"
-            case 5:
-                self.status = 1
-                return "PROVISIONING"
-            case 6:
-                self.status = 1
-                return "heartbeat missed!"
-            case 10:
-                self.status = 2
-                return "Adoption failed!"
-            case _:
-                return f"Unkown state {state}!"
-    
+        if state == 1:
+            self.status = 0
+            return "CONNECTED"
+        elif state == 0:
+            self.status = 2
+            return "DISCONNECTED!"
+        elif state == 4:
+            self.status = 1
+            return "UPGRADING"
+        elif state == 5:
+            self.status = 1
+            return "PROVISIONING"
+        elif state == 6:
+            self.status = 1
+            return "heartbeat missed!"
+        elif state == 10
+            self.status = 2
+            return "Adoption failed!"
+        else:
+            return f"Unkown state {state}!"
+            
     def GetSiteData(self, site):
         return json.loads(self.session.get(url=f"{self.url}/api/s/{site}/stat/device", verify=False).content)['data']
     
