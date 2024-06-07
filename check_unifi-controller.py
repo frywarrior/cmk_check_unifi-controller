@@ -10,13 +10,17 @@ urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
 
 SCRIPTBUILD = "BUILD 2024-06-06-v1"
 
+file = open('/usr/lib/check_mk_agent/creds', 'r')
+
+data = eval(file.read())
+
 # Constants
 #USERNAME = "username"
-USERNAME = os.environ['UNIFI_USER']
+USERNAME = data[0]
 #PASSWORD = "pasword"
-PASSWORD = os.environ['UNIFI_PASS']
+PASSWORD = data[1]
 #BASEURL = "link"
-BASEURL = os.environ['UNIFI_URL']
+BASEURL = data[2]
 
 # adds site name in the checkmk service per device to allow multiple names with same name on different sites
 USE_SITE_PREFIX = 0
@@ -87,7 +91,7 @@ class Unifi:
 
                     NUM_DEVICES += 1
 
-                    DEVICE_NAME = device['name']
+                    DEVICE_NAME = device['name'].replace(" ", "_")
                     if device["name"] == "null":
                         NUM_NOTNAMED += 1
                         break
@@ -103,10 +107,9 @@ class Unifi:
                     DESCRIPTION = self.StateToDesc(STATE)
 
                     if self.use_prefix == 1:
-                        print(f"{self.status} UniFi_{site['desc']}-{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc']}, Clients: {CLIENTS}, Firmware: {VERSION}")
+                        print(f"{self.status} UniFi_{site['desc']}-{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
                     else:
-                        print(f"{self.status} UniFi_{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc']}, Clients: {CLIENTS}, Firmware: {VERSION}")
-                    
+                        print(f"{self.status} UniFi_{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
                     
                 else:
                     pass
