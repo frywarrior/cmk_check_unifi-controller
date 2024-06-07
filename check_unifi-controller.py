@@ -8,7 +8,7 @@ import os
 # to dissable insecure https warning
 urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
 
-SCRIPTBUILD = "BUILD 2024-06-06-v1"
+SCRIPTBUILD = "BUILD 2024-06-07-v3"
 
 file = open('/usr/lib/check_mk_agent/creds', 'r')
 
