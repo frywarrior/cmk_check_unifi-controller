@@ -1,26 +1,16 @@
-#!/usr/bin/env python3
+##!/usr/bin/env python30
+import requests, json, urllib3
 
-import requests
-import json
-import urllib3
-import os
-
-# to dissable insecure https warning
-urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
+urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning) # to dissable insecure https warning
 
 SCRIPTBUILD = "BUILD 2024-06-07-v3"
 
-file = open('/usr/lib/check_mk_agent/creds', 'r')
-
-data = eval(file.read())
+#data = eval(open('/usr/lib/check_mk_agent/creds', 'r').read())
+data = eval(open('creds.txt', 'r').read()) ## testing purposes
 
 # Constants
-#USERNAME = "username"
-USERNAME = data[0]
-#PASSWORD = "pasword"
-PASSWORD = data[1]
-#BASEURL = "link"
-BASEURL = data[2]
+#USERNAME, PASSWORD, BASEURL = "username", "password", "link"
+USERNAME, PASSWORD, BASEURL = data[0], data[1], data[2]
 
 # adds site name in the checkmk service per device to allow multiple names with same name on different sites
 USE_SITE_PREFIX = 0
@@ -73,46 +63,44 @@ class Unifi:
     
     def DisplaySiteData(self):
 
-        NUM_NOTADOPTED = 0
-        NUM_DEVICES = 0
-        NUM_NOTNAMED = 0
-        NUM_SITES = 0
+        sites = self.GetSites()
 
-        for site in self.GetSites():
-            NUM_SITES += 1
-            
+        NUM_NOTADOPTED, NUM_NOTNAMED, NUM_DEVICES, NUM_SITES = 0, 0, 0, len(sites)
+
+        for site in sites:
             for device in self.GetSiteData(site['name']):
 
-                if "serial" in device:
+                if "serial" not in device:
+                    continue
 
-                    if device["adopted"] == False:
-                        NUM_NOTADOPTED += 1
-                        break
+                if device["adopted"] == False:
+                    NUM_NOTADOPTED += 1
+                    continue
 
-                    NUM_DEVICES += 1
+                NUM_DEVICES += 1
 
-                    DEVICE_NAME = device['name'].replace(" ", "_")
-                    if device["name"] == "null":
-                        NUM_NOTNAMED += 1
-                        break
+                DEVICE_NAME = device['name'].replace(" ", "_")
+                if device["name"] == "null":
+                    NUM_NOTNAMED += 1
+                    continue
 
-                    CLIENTS = device["num_sta"]
-                    VERSION = device["version"]
-                    STATE = device["state"]
-                    if "satisfaction" in device:
-                        SCORE = device["satisfaction"]
-                    else:
-                        SCORE = -1
-                    self.status=3 # set the service-state in check_mk, default is unknown if something weird happens
-                    DESCRIPTION = self.StateToDesc(STATE)
-
-                    if self.use_prefix == 1:
-                        print(f"{self.status} UniFi_{site['desc']}-{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
-                    else:
-                        print(f"{self.status} UniFi_{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
-                    
+                CLIENTS = device["num_sta"]
+                VERSION = device["version"]
+                STATE = device["state"]
+                
+                if "satisfaction" in device:
+                    SCORE = device["satisfaction"]
                 else:
-                    pass
+                    SCORE = -1
+                
+                DESCRIPTION = self.StateToDesc(STATE)
+
+                if self.use_prefix == 1:
+                    print(f"{self.status} UniFi_{site['desc']}-{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
+                else:
+                    print(f"{self.status} UniFi_{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
+    
+                    
         if NUM_NOTADOPTED == 0 and NUM_NOTNAMED == 0:
             print(f"0 UniFi-Devices devices={NUM_DEVICES}|sites={NUM_SITES}|unamed={NUM_NOTNAMED}|unadopted={NUM_NOTADOPTED} {NUM_DEVICES} devices on {NUM_SITES} sites - no unnamed or unadopted devices found")
         else:
@@ -138,6 +126,7 @@ class Unifi:
             self.status = 2
             return "Adoption failed!"
         else:
+            self.status = 3 # set the service-state in check_mk, default is unknown if something weird happens
             return f"Unkown state {state}!"
             
     def GetSiteData(self, site):
