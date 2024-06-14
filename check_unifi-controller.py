@@ -23,6 +23,8 @@ class Unifi:
         self.use_prefix = use_site_prefix
         self.session = requests.Session() # Creates session
 
+        self.NUM_NOTADOPTED, self.NUM_NOTNAMED, self.NUM_DEVICES, self.NUM_SITES = 0, 0, 0, 0
+
         # mapping of device's states to check_mk statuses
         # self.status: 0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKN 
         self.status = 0
@@ -40,6 +42,8 @@ class Unifi:
 
         self.DisplaySiteData()
 
+        self.SiteConclusion()
+
     def Login(self, payload):
         self.session.post(url=f"{self.url}/api/login", json=payload, verify=False)
 
@@ -50,61 +54,66 @@ class Unifi:
 
         data = self.GetSysInfo()
 
-        if data["meta"]["rc"] == "ok":
-            data = data["data"][0]
+        if data["meta"]["rc"] != "ok":
+            return 0
+        
+        data = data["data"][0]
 
-            BUILD = data['build']
+        BUILD = data['build']
 
-            if data["update_available"] == "true":
-                BUILD = f"{data['build']} (Upgrade available!)"
-                self.status = 1 # warn
+        if data["update_available"] == "true":
+            BUILD = f"{data['build']} (Upgrade available!)"
+            self.status = 1 # warn
 
-            print(f"{self.status} UniFi-Controller - Hostname: {data['hostname']}, Build {BUILD}, Check-Script {SCRIPTBUILD}")
+        print(f"{self.status} UniFi-Controller - Hostname: {data['hostname']}, Build {BUILD}, Check-Script {SCRIPTBUILD}")
     
     def DisplaySiteData(self):
 
         sites = self.GetSites()
 
-        NUM_NOTADOPTED, NUM_NOTNAMED, NUM_DEVICES, NUM_SITES = 0, 0, 0, len(sites)
+        self.NUM_SITES = len(sites)
 
         for site in sites:
             for device in self.GetSiteData(site['name']):
+                self.DisplayDeviceData(site, device)
 
-                if "serial" not in device:
-                    continue
+    def DisplayDeviceData(self, site, device):
+        if "serial" not in device:
+            return 0
 
-                if device["adopted"] == False:
-                    NUM_NOTADOPTED += 1
-                    continue
+        if device["adopted"] == False:
+            self.NUM_NOTADOPTED += 1
+            return 0
 
-                NUM_DEVICES += 1
+        self.NUM_DEVICES += 1
 
-                DEVICE_NAME = device['name'].replace(" ", "_")
-                if device["name"] == "null":
-                    NUM_NOTNAMED += 1
-                    continue
+        DEVICE_NAME = device['name'].replace(" ", "_")
+        if device["name"] == "null":
+            self.NUM_NOTNAMED += 1
+            return 0
 
-                CLIENTS = device["num_sta"]
-                VERSION = device["version"]
-                STATE = device["state"]
-                
-                if "satisfaction" in device:
-                    SCORE = device["satisfaction"]
-                else:
-                    SCORE = -1
-                
-                DESCRIPTION = self.StateToDesc(STATE)
-
-                if self.use_prefix == 1:
-                    print(f"{self.status} UniFi_{site['desc']}-{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
-                else:
-                    print(f"{self.status} UniFi_{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
-    
-                    
-        if NUM_NOTADOPTED == 0 and NUM_NOTNAMED == 0:
-            print(f"0 UniFi-Devices devices={NUM_DEVICES}|sites={NUM_SITES}|unamed={NUM_NOTNAMED}|unadopted={NUM_NOTADOPTED} {NUM_DEVICES} devices on {NUM_SITES} sites - no unnamed or unadopted devices found")
+        CLIENTS = device["num_sta"]
+        VERSION = device["version"]
+        STATE = device["state"]
+        
+        if "satisfaction" in device:
+            SCORE = device["satisfaction"]
         else:
-            print(f"1 UniFi-Devices devices={NUM_DEVICES}|sites={NUM_SITES}|unamed={NUM_NOTNAMED}|unadopted={NUM_NOTADOPTED} {NUM_DEVICES} devices on {NUM_SITES} sites - found {NUM_NOTNAMED} unnamed devices and {NUM_NOTADOPTED} unadopted devices!")
+            SCORE = -1
+        
+        DESCRIPTION = self.StateToDesc(STATE)
+
+        if self.use_prefix == 1:
+            print(f"{self.status} UniFi_{site['desc']}-{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
+        else:
+            print(f"{self.status} UniFi_{DEVICE_NAME} clients={CLIENTS}|score={SCORE};;;-10;100 {DESCRIPTION}, Site: {site['desc'].replace(' ', '_')}, Clients: {CLIENTS}, Firmware: {VERSION}")
+
+    def SiteConclusion(self):        
+        if self.NUM_NOTADOPTED == 0 and self.NUM_NOTNAMED == 0:
+            print(f"0 UniFi-Devices devices={self.NUM_DEVICES}|sites={self.NUM_SITES}|unamed={self.NUM_NOTNAMED}|unadopted={self.NUM_NOTADOPTED} {self.NUM_DEVICES} devices on {self.NUM_SITES} sites - no unnamed or unadopted devices found")
+        else:
+            print(f"1 UniFi-Devices devices={self.NUM_DEVICES}|sites={self.NUM_SITES}|unamed={self.NUM_NOTNAMED}|unadopted={self.NUM_NOTADOPTED} {self.NUM_DEVICES} devices on {self.NUM_SITES} sites - found {self.NUM_NOTNAMED} unnamed devices and {self.NUM_NOTADOPTED} unadopted devices!")
+
 
     def StateToDesc(self, state):
         if state == 1:
