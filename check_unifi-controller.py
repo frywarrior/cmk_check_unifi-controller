@@ -1,4 +1,4 @@
-#!/usr/bin/env python30
+#!/usr/bin/env python3
 import requests, json, urllib3
 
 urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning) # to dissable insecure https warning
